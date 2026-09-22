@@ -1,0 +1,36 @@
+FROM mcr.microsoft.com/dotnet/sdk:9.0-bookworm-slim AS build
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth=1 \
+    https://github.com/SteamRE/DepotDownloader.git \
+    /src
+
+WORKDIR /src/DepotDownloader
+
+RUN dotnet publish \
+    -c Release \
+    -r linux-arm64 \
+    --self-contained true \
+    -p:PublishSingleFile=true \
+    -o /out
+
+
+FROM debian:bookworm-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        libstdc++6 \
+        zlib1g \
+        libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /out/DepotDownloader /usr/local/bin/DepotDownloader
+
+RUN chmod +x /usr/local/bin/DepotDownloader
+
+ENTRYPOINT ["/usr/local/bin/DepotDownloader"]

@@ -1,0 +1,43 @@
+services:
+  downloader:
+    build:
+      context: .
+      dockerfile: Dockerfile.depot
+
+    platform: linux/arm64
+
+    volumes:
+      - ./server:/server
+
+    command:
+      - -app
+      - "298740"
+      - -depot
+      - "298741"
+      - -dir
+      - /server
+      - -validate
+
+    restart: "no"
+
+
+  space-engineers:
+    build:
+      context: .
+
+    container_name: space-engineers
+
+    restart: unless-stopped
+  
+    network_mode: host
+    
+    volumes:
+      - ./server:/server
+      - ./data:/data
+
+    environment:
+      WINEPREFIX: /data/wine
+      WINEARCH: wow64
+      XDG_CACHE_HOME: /data/cache
+
+    stop_grace_period: 60s

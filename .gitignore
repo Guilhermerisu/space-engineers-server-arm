@@ -1,0 +1,31 @@
+# Downloaded server installation
+server/
+
+# Persistent Wine prefix, configuration, worlds, caches, and logs
+data/
+
+# Local backups
+backups/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Crash dumps and transient logs
+core
+core.*
+*.core
+*.dmp
+*.log
+
+# Local tooling metadata
+.agents/
+.codex/
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*~
