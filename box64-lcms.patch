@@ -1,0 +1,39 @@
+diff --git a/src/wrapped/wrappedlcms2.c b/src/wrapped/wrappedlcms2.c
+index 93c6aa0..a2c2f74 100644
+--- a/src/wrapped/wrappedlcms2.c
++++ b/src/wrapped/wrappedlcms2.c
+@@ -65,4 +65,9 @@ EXPORT void my_cmsSetLogErrorHandlerTHR(x64emu_t* emu, void* ctx, void* f)
+     my->cmsSetLogErrorHandlerTHR(ctx, findcmsLogErrorHandlerFunctionFct(f));
+ }
+ 
++EXPORT void my_cmsSetLogErrorHandler(x64emu_t* emu, void* f)
++{
++    my->cmsSetLogErrorHandler(findcmsLogErrorHandlerFunctionFct(f));
++}
++
+ #include "wrappedlib_init.h"
+diff --git a/src/wrapped/wrappedlcms2_private.h b/src/wrapped/wrappedlcms2_private.h
+index e223751..103bd8f 100644
+--- a/src/wrapped/wrappedlcms2_private.h
++++ b/src/wrapped/wrappedlcms2_private.h
+@@ -304,7 +304,7 @@ GO(cmsSetHeaderManufacturer, vFpu)
+ GO(cmsSetHeaderModel, vFpu)
+ GO(cmsSetHeaderProfileID, vFpp)
+ GO(cmsSetHeaderRenderingIntent, vFpu)
+-//GOM(cmsSetLogErrorHandler, vFEp)
++GOM(cmsSetLogErrorHandler, vFEp)
+ GOM(cmsSetLogErrorHandlerTHR, vFEpp)
+ GO(cmsSetPCS, vFpu)
+ GO(cmsSetProfileVersion, vFpd)
+diff --git a/src/wrapped/wrappedxml2_private.h b/src/wrapped/wrappedxml2_private.h
+index 7ac3028..783cd8f 100644
+--- a/src/wrapped/wrappedxml2_private.h
++++ b/src/wrapped/wrappedxml2_private.h
+@@ -53,6 +53,6 @@ GO(htmlNodeDump, iFppp)
+ GO(htmlNodeDumpFile, vFSpp)
+ GO(htmlNodeDumpFileFormat, iFSpppi)
+-//GOM(htmlNodeDumpFormatOutput, vFEppppi)
++GO(htmlNodeDumpFormatOutput, vFppppi)
+ //GOM(htmlNodeDumpOutput, vFEpppp)
+ GO(htmlNodeStatus, uFpi)
+ //GOM(htmlParseCharRef, iFEp)

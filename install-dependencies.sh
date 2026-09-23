@@ -43,11 +43,11 @@ if [ ! -f "$framework32/ngen.exe" ] || [ ! -f "$framework64/ngen.exe" ]; then
         "$dotnet40_package" >/dev/null
 
     timeout 60s winecfg -v winxp64
-    wine msiexec.exe \
+    wine64 msiexec.exe \
         /i 'C:\dotnet40\RGB9RAST_x64.msi' \
         /qn EXTUI=1 \
         '/l*v' 'C:\dotnet40\rgb-x64.log'
-    wine msiexec.exe \
+    wine64 msiexec.exe \
         /i 'C:\dotnet40\netfx_Core_x64.msi' \
         /qn EXTUI=1 \
         '/l*v' 'C:\dotnet40\core-x64.log'
@@ -63,7 +63,7 @@ download_checked \
     '95889d6de3f2070c07790ad6cf2000d33d9a1bdfc6a381725ab82ab1c314fd53' \
     "$dotnet48_package"
 
-if ! wine reg.exe query \
+if ! wine64 reg.exe query \
     'HKLM\Software\Microsoft\NET Framework Setup\NDP\v4\Full' \
     /v Release 2>/dev/null | grep -qi '0x80eb1'; then
     echo "Installing .NET 4.8 from its verified MSI payload..."
@@ -74,15 +74,31 @@ if ! wine reg.exe query \
         "$dotnet48_package" >/dev/null
 
     timeout 60s winecfg -v win7
-    wine msiexec.exe \
+
+    # winecfg resets this override while changing the Windows version.  Set it
+    # afterwards so .NET's NGen workers do not load Wine 6's incomplete stub.
+    wine64 reg.exe add 'HKCU\Software\Wine\DllOverrides' \
+        /v mscoree /t REG_SZ /d native /f >/dev/null
+    wine64 reg.exe query 'HKCU\Software\Wine\DllOverrides' \
+        /v mscoree | grep -qi 'native'
+
+    dotnet48_status=0
+    WINEDLLOVERRIDES='mscoree=n;fusion=b' wine64 msiexec.exe \
         /i 'C:\dotnet48\netfx_Full_x64.msi' \
         /qn EXTUI=1 \
-        '/l*v' 'C:\dotnet48\full-x64.log'
+        '/l*v' 'C:\dotnet48\full-x64.log' || dotnet48_status=$?
 
-    wine reg.exe query \
+    # Windows Installer success-with-reboot-required (3010) is truncated to
+    # 194 by Wine/Linux.  The prefix does not need a container reboot.
+    if [ "$dotnet48_status" -ne 0 ] && [ "$dotnet48_status" -ne 194 ]; then
+        echo ".NET 4.8 MSI failed with status $dotnet48_status." >&2
+        exit "$dotnet48_status"
+    fi
+
+    wine64 reg.exe query \
         'HKLM\Software\Microsoft\NET Framework Setup\NDP\v4\Full' \
         /v Release | grep -qi '0x80eb1'
-    wine reg.exe query \
+    wine64 reg.exe query \
         'HKLM\Software\Wow6432Node\Microsoft\NET Framework Setup\NDP\v4\Full' \
         /v Release | grep -qi '0x80eb1'
 
@@ -176,7 +192,7 @@ for dll in \
     msvcp120 msvcr120 vcomp120 mfc120 mfc120u mfcm120 mfcm120u \
     concrt140 msvcp140 msvcp140_1 msvcp140_2 ucrtbase vcamp140 \
     vccorlib140 vcomp140 vcruntime140 mfc140 mfc140u mfcm140 mfcm140u; do
-    wine reg.exe add 'HKCU\Software\Wine\DllOverrides' \
+    wine64 reg.exe add 'HKCU\Software\Wine\DllOverrides' \
         /v "$dll" /t REG_SZ /d native,builtin /f >/dev/null
 done
 
@@ -186,24 +202,24 @@ done
 vc_minimum_key='HKLM\Software\Classes\Installer\Dependencies\Microsoft.VS.VC_RuntimeMinimumVSU_amd64,v14'
 vc_additional_key='HKLM\Software\Classes\Installer\Dependencies\Microsoft.VS.VC_RuntimeAdditionalVSU_amd64,v14'
 
-wine reg.exe add "$vc_minimum_key" /ve /t REG_SZ \
+wine64 reg.exe add "$vc_minimum_key" /ve /t REG_SZ \
     /d '{9A4F7AD7-1B9D-4432-9F31-AB6602ADB4F5}' /f >/dev/null
-wine reg.exe add "$vc_minimum_key" /v DisplayName /t REG_SZ \
+wine64 reg.exe add "$vc_minimum_key" /v DisplayName /t REG_SZ \
     /d 'Microsoft Visual C++ 2017 X64 Minimum Runtime - 14.16.27052' \
     /f >/dev/null
-wine reg.exe add "$vc_minimum_key" /v Version /t REG_SZ \
+wine64 reg.exe add "$vc_minimum_key" /v Version /t REG_SZ \
     /d '14.16.27052' /f >/dev/null
 
-wine reg.exe add "$vc_additional_key" /ve /t REG_SZ \
+wine64 reg.exe add "$vc_additional_key" /ve /t REG_SZ \
     /d '{1A673510-C931-4258-BDE7-41C5D306747E}' /f >/dev/null
-wine reg.exe add "$vc_additional_key" /v DisplayName /t REG_SZ \
+wine64 reg.exe add "$vc_additional_key" /v DisplayName /t REG_SZ \
     /d 'Microsoft Visual C++ 2017 X64 Additional Runtime - 14.16.27052' \
     /f >/dev/null
-wine reg.exe add "$vc_additional_key" /v Version /t REG_SZ \
+wine64 reg.exe add "$vc_additional_key" /v Version /t REG_SZ \
     /d '14.16.27052' /f >/dev/null
 
-wine reg.exe query "$vc_minimum_key" >/dev/null
-wine reg.exe query "$vc_additional_key" >/dev/null
+wine64 reg.exe query "$vc_minimum_key" >/dev/null
+wine64 reg.exe query "$vc_additional_key" >/dev/null
 
 test -f "$WINEPREFIX/drive_c/windows/system32/msvcr120.dll"
 test -f "$WINEPREFIX/drive_c/windows/syswow64/msvcr120.dll"
@@ -211,4 +227,8 @@ test -f "$WINEPREFIX/drive_c/windows/system32/vcruntime140.dll"
 test -f "$WINEPREFIX/drive_c/windows/syswow64/vcruntime140.dll"
 
 timeout 60s winecfg -v win10
+wine64 reg.exe add 'HKCU\Software\Wine\DllOverrides' \
+    /v mscoree /t REG_SZ /d native /f >/dev/null
+wine64 reg.exe query 'HKCU\Software\Wine\DllOverrides' \
+    /v mscoree | grep -qi 'native'
 timeout 15s wineserver -k || true

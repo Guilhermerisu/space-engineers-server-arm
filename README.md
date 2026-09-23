@@ -1,7 +1,6 @@
-# Space Engineers Dedicated Server on ARM64
+# Space Engineers Dedicated Server on ARM64 with Wine 6.0.2
 
-Run the Windows Space Engineers Dedicated Server on ARM64 Linux with Docker,
-Box64, Wine WoW64, and Steam networking.
+Run the Windows Space Engineers Dedicated Server on ARM64 Linux with Docker
 
 ## 1. Requirements
 
@@ -81,10 +80,8 @@ docker compose up -d --force-recreate space-engineers
 Watch startup:
 
 ```bash
-docker logs -f space-engineers
+docker compose logs -f space-engineers
 ```
-
-The server is ready when the log contains:
 
 ```text
 Server connected to Steam
@@ -93,11 +90,14 @@ Game ready... Press Ctrl+C to exit
 
 Connect using the server's public IP and port `27016`.
 
+The first launch also installs .NET 4.8 and Visual C++ runtimes into the
+persistent Wine prefix, so it takes longer than later starts.
+
 ## 8. Manage the server
 
 ```bash
 # Status
-docker ps --filter name=space-engineers
+docker compose ps
 
 # Restart
 docker compose restart space-engineers
@@ -106,9 +106,8 @@ docker compose restart space-engineers
 docker compose stop space-engineers
 
 # Recent output
-docker logs --tail 200 space-engineers
+docker compose logs --tail 200 space-engineers
 ```
-
 
 ## 9. Update
 
@@ -120,3 +119,9 @@ docker compose up -d --force-recreate space-engineers
 ```
 
 After downloading an update, repeat step 5 before starting the server.
+
+## 10. Startup reliability
+
+This ARM64 emulation setup has shown intermittent startup crashes. Reaching `Game ready`
+confirms that a launch completed; let it retry some times and continue monitoring the game log for runtime
+failures. Docker's `unless-stopped` policy restarts the container after exits.

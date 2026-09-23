@@ -20,24 +20,23 @@ services:
 
     restart: "no"
 
-
   space-engineers:
     build:
       context: .
 
-    container_name: space-engineers
+    platform: linux/arm64
 
     restart: unless-stopped
-  
+
     network_mode: host
-    
+
     volumes:
       - ./server:/server
       - ./data:/data
 
     environment:
       WINEPREFIX: /data/wine
-      WINEARCH: wow64
+      WINEARCH: win64
       XDG_CACHE_HOME: /data/cache
 
     stop_grace_period: 60s
