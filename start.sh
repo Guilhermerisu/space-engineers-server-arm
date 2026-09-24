@@ -6,42 +6,37 @@ export WINEARCH=win64
 export XDG_CACHE_HOME=/data/cache
 export WINESERVER=/usr/local/bin/wineserver
 
-mkdir -p "$WINEPREFIX" /data/config "$XDG_CACHE_HOME"
+# Wine's own output, including the debug trace, goes to a file per launch so
+# the container log shows only these startup steps and the game log.
+WINE_LOG_DIR=/data/logs
+WINE_LOG_KEEP="${SE_WINE_LOG_KEEP:-5}"
+
+log_step() {
+    printf '\n[%s] [STEP] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
+}
+
+log_info() {
+    printf '[%s] [INFO] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
+}
+
+log_error() {
+    printf '[%s] [ERROR] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >&2
+}
+
+mkdir -p "$WINEPREFIX" /data/config "$XDG_CACHE_HOME" "$WINE_LOG_DIR"
 chown "$(id -u):$(id -g)" "$WINEPREFIX"
 
-echo "======================================"
-echo " Space Engineers ARM64 Server"
-echo "======================================"
+log_step "1/6 Check host and compatibility layers"
+log_info "$(uname -m) | $(box64 --version 2>&1 | tail -n 1 | cut -d' ' -f1-3) | $(wine64 --version)"
 
-echo
-echo "Host architecture:"
-uname -m
-
-echo
-echo "Box64:"
-box64 --version
-
-echo
-echo "Box86:"
-box86 --version
-
-echo
-echo "Wine64:"
-wine64 --version
-
-echo
-echo "Wine32:"
-wine32 --version
-
-echo "======================================"
+log_step "2/6 Prepare Wine prefix"
 
 # --------------------------------------------------
 # Initialize the classic Wine 6 WoW64 prefix
 # --------------------------------------------------
 
 if [ ! -f "$WINEPREFIX/system.reg" ]; then
-    echo
-    echo "Initializing Wine 6 WoW64 prefix..."
+    log_info "Initializing Wine 6 WoW64 prefix"
 
     timeout 60s xvfb-run -a \
         -s "-screen 0 1024x768x24" \
@@ -55,8 +50,7 @@ wine_version="$(wine64 --version)"
 system_files_marker="$WINEPREFIX/.classic-wow64-files-v1-$wine_version"
 
 if [ ! -f "$system_files_marker" ]; then
-    echo
-    echo "Installing Wine 6 32-bit system files..."
+    log_info "Installing Wine 6 32-bit system files"
 
     mkdir -p "$WINEPREFIX/drive_c/windows/syswow64"
     find /opt/wine/lib/wine -maxdepth 1 -type f \
@@ -70,8 +64,7 @@ fi
 services_marker="$WINEPREFIX/.core-services-v5-$wine_version"
 
 if [ ! -f "$services_marker" ]; then
-    echo
-    echo "Registering Wine core services..."
+    log_info "Registering Wine core services"
 
     xvfb-run -a -s "-screen 0 1024x768x24" \
         wine64 cmd.exe /c 'Z:\opt\bootstrap-wine-services.cmd'
@@ -89,8 +82,7 @@ fi
 wow64_marker="$WINEPREFIX/.classic-wow64-v2-$wine_version"
 
 if [ ! -f "$wow64_marker" ]; then
-    echo
-    echo "Validating Wine 6 64-bit and 32-bit subsystems..."
+    log_info "Validating Wine 6 64-bit and 32-bit subsystems"
 
     xvfb-run -a -s "-screen 0 1024x768x24" \
         wine64 cmd.exe /c "echo WINE64_INITIALIZED"
@@ -106,8 +98,7 @@ fi
 components_marker="$WINEPREFIX/.core-components-v3-$wine_version"
 
 if [ ! -f "$components_marker" ]; then
-    echo
-    echo "Registering Wine core components..."
+    log_info "Registering Wine core components"
 
     xvfb-run -a -s "-screen 0 1024x768x24" \
         wine64 regsvr32.exe /s msxml3.dll || true
@@ -130,11 +121,12 @@ fi
 # Install Windows dependencies once
 # --------------------------------------------------
 
+log_step "3/6 Prepare Windows dependencies"
+
 dependencies_marker="/data/.dependencies-installed-$wine_version"
 
 if [ ! -f "$dependencies_marker" ]; then
-    echo
-    echo "Installing .NET 4.8 and Visual C++ runtimes..."
+    log_info "Installing .NET 4.8 and Visual C++ runtimes"
 
     /opt/install-dependencies.sh
 
@@ -151,8 +143,7 @@ fi
 ngen_marker="$WINEPREFIX/.ngen-disabled-v1"
 
 if [ ! -f "$ngen_marker" ]; then
-    echo
-    echo "Disabling .NET NGen services..."
+    log_info "Disabling .NET NGen services"
 
     for service in clr_optimization_v4.0.30319_32 clr_optimization_v4.0.30319_64; do
         wine64 reg.exe add \
@@ -168,37 +159,19 @@ fi
 # Check Space Engineers installation and config
 # --------------------------------------------------
 
+log_step "4/6 Validate server files and configuration"
+
 if [ ! -f /server/DedicatedServer64/SpaceEngineersDedicated.exe ]; then
-    echo
-    echo "======================================"
-    echo "SPACE ENGINEERS NOT INSTALLED"
-    echo "======================================"
-    echo
-    echo "Run:"
-    echo
-    echo "    docker compose run --rm downloader"
-    echo
+    log_error "Space Engineers is not installed. Run:"
+    log_error "    docker compose run --rm downloader"
     exit 1
 fi
 
-echo
-echo "Space Engineers installation found."
-
 if [ ! -f /data/config/SpaceEngineers-Dedicated.cfg ]; then
-    echo
-    echo "======================================"
-    echo "CONFIGURATION NOT FOUND"
-    echo "======================================"
-    echo
-    echo "Expected:"
-    echo
-    echo "    /data/config/SpaceEngineers-Dedicated.cfg"
-    echo "    /data/config/Saves/..."
-    echo
-    echo "Copy your server configuration into:"
-    echo
-    echo "    /opt/space-engineers/data/config/"
-    echo
+    log_error "Configuration not found. Expected:"
+    log_error "    /data/config/SpaceEngineers-Dedicated.cfg"
+    log_error "    /data/config/Saves/..."
+    log_error "Copy your server configuration into /opt/space-engineers/data/config/"
     exit 1
 fi
 
@@ -206,9 +179,7 @@ fi
 # Start Space Engineers
 # --------------------------------------------------
 
-echo
-echo "Starting Space Engineers Dedicated Server..."
-echo
+log_step "5/6 Start virtual display"
 
 cd /server/DedicatedServer64
 
@@ -252,12 +223,16 @@ for _ in $(seq 1 50); do
 done
 
 if [ ! -S /tmp/.X11-unix/X99 ]; then
-    echo "Xvfb did not become ready." >&2
+    log_error "Xvfb did not become ready"
     exit 1
 fi
 
+log_step "6/6 Launch Space Engineers"
+
 export DISPLAY=:99
-export WINEDEBUG=-all
+# Wine 6 loses the server's Steam connection right after the Workshop mod
+# query when tracing is off; with socket tracing on, the connection has held.
+export WINEDEBUG=+timestamp,+tid,+winsock,+iphlpapi,warn+all,err+all
 export BOX64_PROFILE=safest
 export BOX64_DYNAREC_INTERP_SIGNAL=1
 # The server's parallel entity loader races under the weaker ARM memory model
@@ -270,8 +245,6 @@ export COMPlus_ZapDisable=1
 # when no system bus exists in the container.
 export DBUS_FATAL_WARNINGS=0
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Launching SpaceEngineersDedicated.exe"
-
 latest_game_log() {
     find /data/config -maxdepth 1 -type f \
         -name 'SpaceEngineersDedicated_*.log' -printf '%f\n' \
@@ -280,10 +253,19 @@ latest_game_log() {
 
 previous_game_log="$(latest_game_log)"
 
+# Keep only the newest Wine logs; each traced launch writes tens of megabytes.
+find "$WINE_LOG_DIR" -maxdepth 1 -type f -name 'wine-*.log' -printf '%f\n' \
+    | LC_ALL=C sort | head -n "-$((WINE_LOG_KEEP - 1))" \
+    | while read -r old_log; do rm -f "$WINE_LOG_DIR/$old_log"; done
+wine_log="$WINE_LOG_DIR/wine-$(date '+%Y%m%d-%H%M%S').log"
+
+log_info "Launching SpaceEngineersDedicated.exe (Wine output: data/${wine_log#/data/})"
+
 wine64 SpaceEngineersDedicated.exe \
     -console \
     -steam \
-    -path 'Z:\data\config' &
+    -path 'Z:\data\config' \
+    >"$wine_log" 2>&1 &
 game_pid=$!
 
 # Forward the log created by this launch to Docker's stdout. Every container
@@ -292,7 +274,6 @@ game_pid=$!
     while :; do
         current_game_log="$(latest_game_log)"
         if [ -n "$current_game_log" ] && [ "$current_game_log" != "$previous_game_log" ]; then
-            echo "Following game log: $current_game_log"
             exec tail -n +1 -F "/data/config/$current_game_log"
         fi
         sleep 1
@@ -307,5 +288,5 @@ wait "$game_pid" || game_status=$?
 sleep 2
 stop_game_log
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] SpaceEngineersDedicated.exe (wine64) exited with status $game_status"
+log_info "SpaceEngineersDedicated.exe (wine64) exited with status $game_status"
 exit "$game_status"

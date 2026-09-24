@@ -28,7 +28,9 @@ services:
 
     restart: unless-stopped
 
-    network_mode: host
+    ports:
+      - "27116:27116/udp"
+      - "8866:8866/udp"
 
     volumes:
       - ./server:/server
