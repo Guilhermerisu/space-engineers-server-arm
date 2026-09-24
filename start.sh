@@ -10,6 +10,7 @@ export WINESERVER=/usr/local/bin/wineserver
 # the container log shows only these startup steps and the game log.
 WINE_LOG_DIR=/data/logs
 WINE_LOG_KEEP="${SE_WINE_LOG_KEEP:-5}"
+[ "$WINE_LOG_KEEP" -ge 1 ] 2>/dev/null || WINE_LOG_KEEP=1
 
 log_step() {
     printf '\n[%s] [STEP] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"

@@ -29,8 +29,8 @@ services:
     restart: unless-stopped
 
     ports:
-      - "27116:27116/udp"
-      - "8866:8866/udp"
+      - "27016:27016/udp"
+      - "8766:8766/udp"
 
     volumes:
       - ./server:/server

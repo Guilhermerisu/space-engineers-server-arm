@@ -40,11 +40,13 @@ Set these values in `data/config/SpaceEngineers-Dedicated.cfg`:
 <ServerPort>27016</ServerPort>
 <NetworkType>steam</NetworkType>
 <RemoteApiEnabled>false</RemoteApiEnabled>
+<AutodetectDependencies>false</AutodetectDependencies>
 <LoadWorld>Z:\data\config\Saves\YourWorld</LoadWorld>
 ```
 
 Keep the Remote API disabled because its Windows HTTP listener does not work
-correctly under Wine.
+correctly under Wine. With `AutodetectDependencies` off, the server skips one
+Workshop query at startup; list every dependency mod in the world instead.
 
 ## 5. Apply the server-GC compatibility setting
 
@@ -54,9 +56,6 @@ Inside the `<runtime>` element of
 ```xml
 <gcServer enabled="true" />
 ```
-
-Check this again after updating the dedicated server because validation may
-overwrite the file.
 
 ## 6. Open the firewall ports
 
@@ -68,7 +67,9 @@ sudo ufw allow 27016/udp
 sudo ufw allow 8766/udp
 ```
 
-The container uses host networking, so Docker port mappings are not needed.
+Docker publishes these ports (see `ports` in `docker-compose.yml`). To use
+other ports, change them in both `docker-compose.yml` and
+`SpaceEngineers-Dedicated.cfg`.
 
 ## 7. Build and start
 
@@ -85,6 +86,8 @@ docker compose logs -f space-engineers
 
 ```text
 Server connected to Steam
+Mod query successful
+Mod download successful.          (once per mod, first start only)
 Game ready... Press Ctrl+C to exit
 ```
 
@@ -107,21 +110,7 @@ docker compose stop space-engineers
 
 # Recent output
 docker compose logs --tail 200 space-engineers
+
+# Wine output of the current launch
+tail -f "$(ls -t data/logs/wine-*.log | head -1)"
 ```
-
-## 9. Update
-
-```bash
-docker compose stop space-engineers
-docker compose run --rm downloader
-docker compose build space-engineers
-docker compose up -d --force-recreate space-engineers
-```
-
-After downloading an update, repeat step 5 before starting the server.
-
-## 10. Startup reliability
-
-This ARM64 emulation setup has shown intermittent startup crashes. Reaching `Game ready`
-confirms that a launch completed; let it retry some times and continue monitoring the game log for runtime
-failures. Docker's `unless-stopped` policy restarts the container after exits.
