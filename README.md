@@ -57,7 +57,16 @@ Inside the `<runtime>` element of
 <gcServer enabled="true" />
 ```
 
-## 6. Open the firewall ports
+## 6. Update the Steam client libraries
+
+```bash
+docker compose run --rm downloader -app 1007 -os windows -osarch 64 -dir /server/steamworks-redist
+for f in steamclient64.dll tier0_s64.dll vstdlib_s64.dll; do
+    sudo cp server/steamworks-redist/$f server/DedicatedServer64/$f
+done
+```
+
+## 7. Open the firewall ports
 
 Allow UDP ports `27016` and `8766` in both the host firewall and the cloud
 provider firewall. For UFW:
@@ -71,7 +80,7 @@ Docker publishes these ports (see `ports` in `docker-compose.yml`). To use
 other ports, change them in both `docker-compose.yml` and
 `SpaceEngineers-Dedicated.cfg`.
 
-## 7. Build and start
+## 8. Build and start
 
 ```bash
 docker compose build space-engineers
@@ -96,7 +105,7 @@ Connect using the server's public IP and port `27016`.
 The first launch also installs .NET 4.8 and Visual C++ runtimes into the
 persistent Wine prefix, so it takes longer than later starts.
 
-## 8. Manage the server
+## 9. Manage the server
 
 ```bash
 # Status
